@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+
+ ollama: 
+   image: ollama/ollama:rocm
+   volumes:
+     - ollama:/root/.ollama
+   pull_policy: always
+   tty: true
+   restart: unless-stopped
+   networks:
+     - ollama
+   environment:
+     - OLLAMA_KEEP_ALIVE=24h
+     - HSA_OVERRIDE_GFX_VERSION="11.0.0"
+     - HIP_VISIBLE_DEVICES="0"
+   devices:
+     - "/dev/kfd"
+     - "/dev/dri"
+   security_opt:
+     - seccomp:unconfined
+   cap_add:
+     - SYS_PTRACE
+   ipc: host
+   group_add:
+     - video
+
+  ollama-webui:
+    image: ghcr.io/open-webui/open-webui
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - ollama
+    ports:
+      - 9001:8080
+    environment: # https://docs.openwebui.com/getting-started/env-configuration#default_models
+      - OLLAMA_BASE_URLS=http://ollama:11434 #comma separated ollama hosts
+      - ENV=dev
+      - WEBUI_AUTH=False
+      - WEBUI_NAME=valiantlynx AI
+      - WEBUI_URL=http://localhost:9001
+      - WEBUI_SECRET_KEY=t0p-s3cr3t
+    restart: unless-stopped
+    networks:
+      - ollama
+
+  flowise:
+    image: elestio/flowiseai
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    volumes:
+      - flowise:/root/.flowise
+    ports:
+      - "9000:3000"
+    environment:
+      - PORT=3000
+      - FLOWISE_USERNAME=admin
+      - FLOWISE_PASSWORD=password
+    networks:
+      - ollama
+
+networks:
+  ollama:
+    external: false
+
+volumes:
+  ollama:
+  open-webui:
+  flowise:
+
